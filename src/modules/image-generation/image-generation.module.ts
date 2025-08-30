@@ -4,6 +4,7 @@ import { ImageGenerationService } from './image-generation.service';
 
 @Module({
   controllers: [ImageGenerationController],
-  providers: [ImageGenerationService]
+  providers: [ImageGenerationService],
+  exports: [ImageGenerationService]
 })
 export class ImageGenerationModule {}

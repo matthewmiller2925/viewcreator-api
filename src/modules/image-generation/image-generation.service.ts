@@ -227,6 +227,106 @@ Generate this image with exceptional quality and attention to detail.`;
     }
   }
 
+  // Generate using template prompt and optional reference images (URLs)
+  async generateFromTemplate(prompt: string, imageUrls: string[] = []): Promise<GenerateImageResponseDto> {
+    const startTime = Date.now();
+    const aspectRatio = '1:1';
+    const style = ImageStyle.PHOTOREALISTIC;
+
+    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
+    if (!apiKey) {
+      this.logger.error('Missing GEMINI_API_KEY environment variable');
+      throw new InternalServerErrorException('Missing GEMINI_API_KEY environment variable');
+    }
+
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+
+      const styleEnhancement = this.stylePrompts[style];
+      const aspectRatioEnhancement = this.getAspectRatioPrompt(aspectRatio);
+      const enrichedPrompt = `You are an expert visual content generator.\n\nRequirements:\n- Use the provided reference images as primary visual guidance. Preserve key subjects, proportions, placement, and overall visual style.\n- Follow the prompt faithfully while respecting references.\n- Ensure all on-image text is correctly spelled and legible.\n- Output must be clear, concise, and visually coherent.\n\nSTYLE: ${styleEnhancement}\nCOMPOSITION: ${aspectRatioEnhancement}\nPROMPT: ${prompt}`;
+
+      // Load reference images to base64 with mimeType if provided
+      const refParts: any[] = [];
+      for (const url of imageUrls.slice(0, 4)) {
+        try {
+          const res = await fetch(url as any, { cache: 'no-store' });
+          const buf = await res.arrayBuffer();
+          const b64 = Buffer.from(buf).toString('base64');
+          const mime = (res.headers && (res.headers.get && res.headers.get('content-type'))) || 'image/png';
+          refParts.push({ inlineData: { mimeType: typeof mime === 'string' ? mime : 'image/png', data: b64 } });
+        } catch {}
+      }
+
+      this.logger.debug('Calling Gemini API with references', {
+        model: 'gemini-2.5-flash-image-preview',
+        refCount: refParts.length,
+      });
+
+      const response = await (ai.models as any).generateContent({
+        model: 'gemini-2.5-flash-image-preview',
+        contents: [
+          {
+            role: 'user',
+            parts: [...refParts, { text: enrichedPrompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 1.05,
+          // Ask model for maximum variability while remaining faithful to references
+          topK: 64,
+          topP: 0.95,
+        },
+      });
+
+      // Normalize to a candidates-like array regardless of SDK shape
+      const candidates = (response as any)?.candidates ?? (Array.isArray((response as any)?.contents) ? (response as any).contents : []);
+      let base64: string | undefined;
+      if (Array.isArray(candidates)) {
+        for (const cand of candidates) {
+          const p = (cand?.content?.parts ?? cand?.parts ?? []) as any[];
+          for (const part of p) {
+            const data = part?.inlineData?.data || (part as any)?.inline_data?.data;
+            if (data) { base64 = data as string; break; }
+          }
+          if (base64) break;
+        }
+      }
+
+      if (!base64) {
+        throw new BadRequestException('Gemini did not return image data.');
+      }
+
+      const { width, height } = this.getTargetDimensions(aspectRatio);
+      const fittedBase64 = await this.fitImageToCanvas(`data:image/png;base64,${base64}`, width, height);
+      const imageUrl = fittedBase64;
+      const total = Date.now() - startTime;
+      this.logger.log('Generated from template', { promptPreview: prompt.slice(0, 80), duration: `${total}ms` });
+      return { success: true, imageUrl, message: 'Image generated from template' };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Generation failed';
+      this.logger.error('Template-based generation failed', error instanceof Error ? error.stack : String(error));
+      throw new InternalServerErrorException(message);
+    }
+  }
+
+  async generateMultipleFromTemplate(prompt: string, imageUrls: string[] = [], count = 1): Promise<{ success: boolean; images: string[] }>{
+    const capped = Math.max(1, Math.min(6, Math.floor(count)));
+    // Staggered parallelism to avoid rate limits and increase variation
+    const batches: Promise<GenerateImageResponseDto>[] = [];
+    for (let i = 0; i < capped; i++) {
+      batches.push(this.generateFromTemplate(`${prompt} (variation ${i + 1})`, imageUrls));
+      // small delay between launches
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    const results = await Promise.allSettled(batches);
+    const images: string[] = [];
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value?.imageUrl) images.push(r.value.imageUrl);
+    }
+    return { success: images.length > 0, images };
+  }
+
   // Generate an MP4 from a single AI-generated frame (MVP)
   async generateVideo(generateImageDto: GenerateImageDto & { duration?: number }): Promise<GenerateImageResponseDto> {
     const startTime = Date.now();

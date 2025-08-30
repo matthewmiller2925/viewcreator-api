@@ -8,6 +8,13 @@ import { ImageVariationModule } from './modules/image-variation/image-variation.
 import { ImageEditingModule } from './modules/image-editing/image-editing.module';
 import { CommonModule } from './modules/common/common.module';
 import { LoggerModule, HttpLoggingInterceptor } from './common/logger';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
+import { User } from './entities/User';
+import { Template } from './entities/Template';
+import { UsersModule } from './modules/users/users.module';
+import { TemplatesModule } from './modules/templates/templates.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -15,11 +22,28 @@ import { LoggerModule, HttpLoggingInterceptor } from './common/logger';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get<string>('PG_HOST'),
+        port: parseInt(configService.get<string>('PG_PORT') || '5432', 10),
+        username: configService.get<string>('PG_USER'),
+        password: configService.get<string>('PG_PASSWORD'),
+        database: configService.get<string>('PG_DATABASE'),
+        entities: [User, Template],
+        synchronize: false,
+        autoLoadEntities: false,
+      }),
+    }),
     LoggerModule,
     ImageGenerationModule,
     ImageVariationModule,
     ImageEditingModule,
     CommonModule,
+    AuthModule,
+    UsersModule,
+    TemplatesModule,
   ],
   controllers: [AppController],
   providers: [

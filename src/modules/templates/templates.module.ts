@@ -1,0 +1,18 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Template } from '../../entities/Template';
+import { TemplatesService } from './templates.service';
+import { TemplatesController } from './templates.controller';
+import { AuthModule } from '../auth/auth.module';
+import { ConfigModule } from '@nestjs/config';
+import { ImageGenerationModule } from '../image-generation/image-generation.module';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([Template]), AuthModule, ConfigModule, ImageGenerationModule],
+  controllers: [TemplatesController],
+  providers: [TemplatesService],
+  exports: [TemplatesService],
+})
+export class TemplatesModule {}
+
+

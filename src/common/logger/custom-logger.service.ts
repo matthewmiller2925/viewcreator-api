@@ -6,6 +6,17 @@ import { Inject } from '@nestjs/common';
 @Injectable({ scope: Scope.TRANSIENT })
 export class CustomLoggerService implements LoggerService {
   private context?: string;
+  private static readonly defaultSensitiveKeys: ReadonlySet<string> = new Set([
+    'password',
+    'passwordHash',
+    'authorization',
+    'accessToken',
+    'refreshToken',
+    'token',
+    'client_secret',
+    'apiKey',
+    'x-api-key',
+  ]);
 
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
@@ -55,6 +66,36 @@ export class CustomLoggerService implements LoggerService {
   }
 
   // Additional utility methods for structured logging
+  redact<T = any>(value: T, extraSensitiveKeys: string[] = []): T {
+    const keysToRedact = new Set<string>([...CustomLoggerService.defaultSensitiveKeys, ...extraSensitiveKeys]);
+    const seen = new WeakSet();
+
+    const redactInner = (input: any): any => {
+      if (input === null || input === undefined) return input;
+      if (typeof input !== 'object') return input;
+      if (seen.has(input)) return '[Circular]';
+      seen.add(input);
+
+      if (Array.isArray(input)) {
+        return input.map((item) => redactInner(item));
+      }
+
+      const output: Record<string, any> = {};
+      for (const [key, val] of Object.entries(input)) {
+        if (keysToRedact.has(key)) {
+          output[key] = '[REDACTED]';
+        } else if (typeof val === 'object' && val !== null) {
+          output[key] = redactInner(val);
+        } else {
+          output[key] = val;
+        }
+      }
+      return output;
+    };
+
+    return redactInner(value);
+  }
+
   logRequest(method: string, url: string, statusCode: number, responseTime: number, userId?: string) {
     this.logger.http('HTTP Request', {
       context: 'HTTP',
