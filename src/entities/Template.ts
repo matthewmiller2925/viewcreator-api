@@ -9,7 +9,7 @@ export class Template {
   prompt!: string;
 
   @Column({ type: 'jsonb', nullable: true })
-  images?: unknown;
+  images?: any;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;

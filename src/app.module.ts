@@ -11,10 +11,16 @@ import { ConfigService } from '@nestjs/config';
 import { User } from './entities/User';
 import { Template } from './entities/Template';
 import { Subscription } from './entities/Subscription';
+import { Agent } from './entities/Agent';
+import { AgentStep } from './entities/AgentStep';
+import { AgentRun } from './entities/AgentRun';
+import { AgentRunStep } from './entities/AgentRunStep';
 import { UsersModule } from './modules/users/users.module';
 import { TemplatesModule } from './modules/templates/templates.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { AgentsModule } from './modules/agents/agents.module';
+import { AgentRunsModule } from './modules/agent-runs/agent-runs.module';
 
 @Module({
   imports: [
@@ -31,7 +37,7 @@ import { BillingModule } from './modules/billing/billing.module';
         username: configService.get<string>('PG_USER'),
         password: configService.get<string>('PG_PASSWORD'),
         database: configService.get<string>('PG_DATABASE'),
-        entities: [User, Template, Subscription],
+        entities: [User, Template, Subscription, Agent, AgentStep, AgentRun, AgentRunStep],
         synchronize: false,
         autoLoadEntities: false,
       }),
@@ -43,6 +49,8 @@ import { BillingModule } from './modules/billing/billing.module';
     UsersModule,
     TemplatesModule,
     BillingModule,
+    AgentsModule,
+    AgentRunsModule,
   ],
   controllers: [AppController],
   providers: [

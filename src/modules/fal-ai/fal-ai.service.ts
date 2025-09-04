@@ -90,7 +90,8 @@ export class FalAiService {
   async generateImage(dto: GenerateImageDto): Promise<FalImageResult> {
     this.checkApiKey();
     const startTime = Date.now();
-    const model = dto.model || FalImageModel.NANO_BANANA;
+    // Enforce Nano Banana for all image generation regardless of client-provided model
+    const model = FalImageModel.NANO_BANANA;
 
     try {
       this.logger.log(`Generating image with model: ${model}`, {
@@ -150,46 +151,58 @@ export class FalAiService {
    */
   async generateVideo(dto: GenerateVideoDto): Promise<FalVideoResult> {
     const startTime = Date.now();
-    const model = dto.model || FalVideoModel.STABLE_VIDEO;
+    // Prefer Veo 3 Fast image-to-video as primary model
+    const requestedModel = FalVideoModel.VEO_3 as string;
+    const fallbackModels: string[] = [
+      requestedModel,
+      FalVideoModel.WAN_PRO_IMAGE_TO_VIDEO,
+      FalVideoModel.STABLE_VIDEO,
+      FalVideoModel.RUNWAY_GEN3,
+    ].filter(Boolean) as string[];
 
-    try {
-      this.logger.log(`Generating video with model: ${model}`, {
-        prompt: dto.prompt.substring(0, 100) + '...',
-        model,
-        hasImage: !!dto.image_url,
-      });
+    const input: any = {
+      prompt: dto.prompt,
+      image_url: dto.image_url,
+      duration: dto.duration,
+      aspect_ratio: dto.aspect_ratio,
+    };
+    if (dto.motion_bucket_id) input.motion_bucket_id = dto.motion_bucket_id;
 
-      const input: any = {
-        prompt: dto.prompt,
-      };
+    let lastError: any = null;
+    for (const model of fallbackModels) {
+      try {
+        this.logger.log(`Generating video with model: ${model}`, {
+          prompt: dto.prompt.substring(0, 100) + '...',
+          model,
+          hasImage: !!dto.image_url,
+        });
 
-      if (dto.image_url) input.image_url = dto.image_url;
-      if (dto.duration) input.duration = dto.duration;
-      if (dto.aspect_ratio) input.aspect_ratio = dto.aspect_ratio;
-      if (dto.motion_bucket_id) input.motion_bucket_id = dto.motion_bucket_id;
+        const result = await fal.subscribe(model, {
+          input,
+          logs: true,
+        }) as FalVideoResult;
 
-      const result = await fal.subscribe(model, {
-        input,
-        logs: true,
-      }) as FalVideoResult;
-
-      const duration = Date.now() - startTime;
-      this.logger.log(`Video generation completed`, {
-        model,
-        duration: `${duration}ms`,
-      });
-
-      return result;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      this.logger.error(`Video generation failed`, {
-        model,
-        duration: `${duration}ms`,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      
-      throw new InternalServerErrorException(`Video generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        const durationMs = Date.now() - startTime;
+        this.logger.log(`Video generation completed`, {
+          model,
+          duration: `${durationMs}ms`,
+        });
+        return result;
+      } catch (error) {
+        lastError = error;
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Model failed: ${model} → ${message}. Trying next fallback if available.`);
+        // Continue to next fallback for client errors or unknown issues as well
+        continue;
+      }
     }
+
+    const duration = Date.now() - startTime;
+    this.logger.error(`Video generation failed after fallbacks`, {
+      duration: `${duration}ms`,
+      error: lastError instanceof Error ? lastError.message : String(lastError),
+    });
+    throw new InternalServerErrorException(`Video generation failed: ${lastError instanceof Error ? lastError.message : 'Unknown error'}`);
   }
 
   /**

@@ -12,3 +12,19 @@ export enum SubscriptionStatusEnum {
   INCOMPLETE_EXPIRED = 'incomplete_expired',
   UNPAID = 'unpaid'
 }
+
+export enum AgentRunStatusEnum {
+  QUEUED = 'queued',
+  RUNNING = 'running',
+  SUCCEEDED = 'succeeded',
+  FAILED = 'failed',
+  CANCELED = 'canceled'
+}
+
+export enum AgentRunStepStatusEnum {
+  PENDING = 'pending',
+  RUNNING = 'running',
+  SUCCEEDED = 'succeeded',
+  FAILED = 'failed',
+  SKIPPED = 'skipped'
+}

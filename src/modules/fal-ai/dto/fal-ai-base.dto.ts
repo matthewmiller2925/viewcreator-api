@@ -43,6 +43,8 @@ export enum FalVideoModel {
   STABLE_VIDEO = 'fal-ai/stable-video',
   LUMA_DREAM_MACHINE = 'fal-ai/luma-dream-machine',
   RUNWAY_GEN3 = 'fal-ai/runway-gen3/turbo/image-to-video',
+  VEO_3 = 'fal-ai/veo3/fast/image-to-video',
+  WAN_PRO_IMAGE_TO_VIDEO = 'fal-ai/wan-pro/image-to-video',
 }
 
 export enum FalLLMModel {
