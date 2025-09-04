@@ -118,7 +118,7 @@ this.logger.logSecurityEvent('invalid-image-upload', 'medium', {
 External API calls are tracked:
 
 ```typescript
-this.logger.logApiCall('Gemini', 'generateContent', apiDuration, success, error);
+this.logger.logApiCall('Vertex', 'generateContent', apiDuration, success, error);
 ```
 
 ## Usage Examples

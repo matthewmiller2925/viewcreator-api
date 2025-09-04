@@ -12,6 +12,10 @@ export class User {
   @Column({ type: 'text' })
   passwordHash!: string;
 
+  @Index('idx_users_stripe_customer_id', { unique: true })
+  @Column({ type: 'text', nullable: true, unique: true })
+  stripeCustomerId?: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;
 

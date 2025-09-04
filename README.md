@@ -1,12 +1,24 @@
+## Vertex AI Configuration
+
+Set the following environment variables for Vertex AI:
+
+```
+VERTEX_PROJECT_ID=your-gcp-project-id
+VERTEX_LOCATION=us-central1
+# Ensure ADC credentials are available (e.g., GOOGLE_APPLICATION_CREDENTIALS is set to a service account JSON)
+```
+
+The API uses Vertex AI for image generation, variation, and selective editing via the `gemini-2.5-flash-image-preview` model.
+
 # ViewCreator API
 
 A NestJS-based API server for the ViewCreator platform, providing image generation, variation, and editing capabilities.
 
 ## Features
 
-- **Image Generation**: Generate images using Google Gemini AI with various styles and aspect ratios
-- **Image Variation**: Create variations of existing images with different styles, lighting, composition, etc.
-- **Image Editing**: Add text overlays to images with customizable fonts, colors, and positioning
+- **Image Generation**: Generate images via Vertex AI (Gemini model) with various styles and aspect ratios
+- **Image Variation**: Create variations of existing images via Vertex AI
+- **Image Editing**: Add text overlays (local Canvas) and selective edits via Vertex AI
 - **Modular Architecture**: Clean, maintainable code structure with separate modules for each feature
 - **Validation**: Request validation using class-validator
 - **Environment Configuration**: Centralized configuration management
@@ -44,7 +56,8 @@ A NestJS-based API server for the ViewCreator platform, providing image generati
    ```
 
 4. Configure your environment variables in `.env`:
-   - `GEMINI_API_KEY`: Your Google Gemini API key
+   - `VERTEX_PROJECT_ID`: Your GCP project ID
+   - `VERTEX_LOCATION`: Vertex region (default: us-central1)
    - `PORT`: Server port (default: 3001)
    - `CORS_ORIGIN`: Frontend URL for CORS (default: http://localhost:3000)
 
@@ -80,14 +93,19 @@ src/
 
 - `PORT`: Server port (default: 3001)
 - `NODE_ENV`: Environment (development/production)
-- `GEMINI_API_KEY`: Google Gemini API key for image generation
+- `VERTEX_PROJECT_ID`: GCP project ID
+- `VERTEX_LOCATION`: Vertex region (default: us-central1)
 - `CORS_ORIGIN`: Allowed CORS origin (default: http://localhost:3000)
+ - `STRIPE_SECRET_KEY`: Stripe Secret key
+ - `STRIPE_WEBHOOK_SECRET`: Stripe webhook signing secret
+ - `STRIPE_SUCCESS_URL`: Checkout success redirect URL
+ - `STRIPE_CANCEL_URL`: Checkout cancel redirect URL
 
 ## Technologies Used
 
 - **NestJS**: Progressive Node.js framework
 - **TypeScript**: Type-safe JavaScript
-- **Google Gemini AI**: Image generation capabilities
+- **Vertex AI (Gemini model)**: Image generation capabilities
 - **Canvas**: Image editing and text overlay functionality
 - **class-validator**: Request validation
 - **@nestjs/config**: Configuration management

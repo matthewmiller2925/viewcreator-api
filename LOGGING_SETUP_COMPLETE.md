@@ -110,8 +110,9 @@ APP_NAME=viewcreator-api
 # Logging Configuration
 LOG_LEVEL=info
 
-# Google Gemini API
-GEMINI_API_KEY=your_gemini_api_key_here
+# Vertex AI
+VERTEX_PROJECT_ID=your_gcp_project_id
+VERTEX_LOCATION=us-central1
 
 # CORS Configuration
 CORS_ORIGIN=http://localhost:3000
@@ -124,9 +125,10 @@ CORS_ORIGIN=http://localhost:3000
    cp .env.example .env
    ```
 
-2. **Set your Gemini API key**:
+2. **Set your Vertex variables**:
    ```env
-   GEMINI_API_KEY=your_actual_gemini_api_key
+   VERTEX_PROJECT_ID=your_actual_gcp_project_id
+   VERTEX_LOCATION=us-central1
    ```
 
 3. **Start the development server**:

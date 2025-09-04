@@ -5,10 +5,10 @@ import { TemplatesService } from './templates.service';
 import { TemplatesController } from './templates.controller';
 import { AuthModule } from '../auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
-import { ImageGenerationModule } from '../image-generation/image-generation.module';
+import { FalAiModule } from '../fal-ai/fal-ai.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Template]), AuthModule, ConfigModule, ImageGenerationModule],
+  imports: [TypeOrmModule.forFeature([Template]), AuthModule, ConfigModule, FalAiModule],
   controllers: [TemplatesController],
   providers: [TemplatesService],
   exports: [TemplatesService],
