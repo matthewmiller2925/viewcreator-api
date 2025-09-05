@@ -5,6 +5,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CustomLoggerService } from '../../common/logger';
 import { FalAiService } from '../fal-ai/fal-ai.service';
 import { GenerateImageDto, FalImageModel } from '../fal-ai/dto/fal-ai-base.dto';
+import { CreditsService } from '../credits/credits.service';
+import { TemplateJobStatusEnum } from '../../enums';
 
 class CreateTemplateDto {
   @IsString()
@@ -32,6 +34,7 @@ export class TemplatesController {
     private readonly templatesService: TemplatesService,
     private readonly logger: CustomLoggerService,
     private readonly falAiService: FalAiService,
+    private readonly creditsService: CreditsService,
   ) {
     this.logger.setContext('TemplatesController');
   }
@@ -70,8 +73,13 @@ export class TemplatesController {
     return tpl;
   }
 
+  @Get('jobs/:userId')
+  async getTemplateJobs(@Param('userId') userId: string) {
+    return this.templatesService.getTemplateJobs(userId);
+  }
+
   @Post(':id/generate')
-  async generateFromTemplate(@Param('id') id: string, @Body() body?: GenerateFromTemplateDto) {
+  async generateFromTemplate(@Param('id') id: string, @Body() body: GenerateFromTemplateDto & { userId: string }) {
     const tpl = await this.templatesService.getTemplateById(id);
     if (!tpl) return { success: false, error: 'Template not found' };
     
@@ -79,14 +87,23 @@ export class TemplatesController {
     const count = Math.max(1, Math.min(6, Number(body?.count) || 1));
     const aspectRatio = body?.aspectRatio || '1:1';
     
+    // Create template job
+    const job = await this.templatesService.createTemplateJob(id, body.userId, { count, aspectRatio });
+    
     this.logger.debug('Generate from template', { 
       templateId: id, 
+      jobId: job.id,
       count, 
       aspectRatio,
       refCount: refs.length 
     });
     
     try {
+      // Update job to running
+      await this.templatesService.updateTemplateJob(job.id, {
+        status: TemplateJobStatusEnum.RUNNING,
+        startedAt: new Date()
+      });
       // Enhanced prompt with reference images context
       let enhancedPrompt = this.constructEnhancedPrompt(tpl.prompt, refs.length > 0, aspectRatio);
 
@@ -103,11 +120,31 @@ export class TemplatesController {
         };
 
         const result = await this.falAiService.generateImage(dto);
+        
+        // Deduct credits and update job
+        const creditsUsed = this.creditsService.getImageGenerationCost(1);
+        await this.creditsService.deductCredits(
+          body.userId,
+          creditsUsed,
+          `Template generation: ${tpl.prompt.slice(0, 50)}...`,
+          job.id,
+          'template'
+        );
+        
+        await this.templatesService.updateTemplateJob(job.id, {
+          status: TemplateJobStatusEnum.SUCCEEDED,
+          finishedAt: new Date(),
+          creditsUsed,
+          results: { images: result.images.map(img => img.url) }
+        });
+
         return {
           success: true,
+          jobId: job.id,
           imageUrl: result.images[0]?.url,
           images: result.images.map(img => img.url),
           message: 'Image generated successfully from template',
+          creditsUsed,
         };
       } else {
         // Multiple image generation
@@ -126,17 +163,45 @@ export class TemplatesController {
         });
 
         const imageUrls = await Promise.all(promises);
+        
+        // Deduct credits and update job
+        const creditsUsed = this.creditsService.getImageGenerationCost(count);
+        await this.creditsService.deductCredits(
+          body.userId,
+          creditsUsed,
+          `Template generation (${count} images): ${tpl.prompt.slice(0, 50)}...`,
+          job.id,
+          'template'
+        );
+        
+        await this.templatesService.updateTemplateJob(job.id, {
+          status: TemplateJobStatusEnum.SUCCEEDED,
+          finishedAt: new Date(),
+          creditsUsed,
+          results: { images: imageUrls.filter(Boolean) }
+        });
+
         return {
           success: true,
+          jobId: job.id,
           images: imageUrls.filter(Boolean),
           message: `${count} images generated successfully from template`,
+          creditsUsed,
         };
       }
     } catch (error) {
       this.logger.error('Template generation failed', error instanceof Error ? error.message : String(error));
 
+      // Update job to failed
+      await this.templatesService.updateTemplateJob(job.id, {
+        status: TemplateJobStatusEnum.FAILED,
+        finishedAt: new Date(),
+        errorMessage: error instanceof Error ? error.message : 'Unknown error'
+      });
+
       return {
         success: false,
+        jobId: job.id,
         error: error instanceof Error ? error.message : 'Generation failed',
       };
     }

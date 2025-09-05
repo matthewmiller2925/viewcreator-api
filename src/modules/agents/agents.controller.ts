@@ -59,6 +59,11 @@ export class AgentsController {
   async getRunStatus(@Param('runId') runId: string) {
     return this.agentsService.getRunStatus(runId);
   }
+
+  @Get('runs/user/:userId')
+  async getUserAgentRuns(@Param('userId') userId: string) {
+    return this.agentsService.getUserAgentRuns(userId);
+  }
 }
 
 

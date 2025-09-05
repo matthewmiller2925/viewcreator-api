@@ -15,12 +15,16 @@ import { Agent } from './entities/Agent';
 import { AgentStep } from './entities/AgentStep';
 import { AgentRun } from './entities/AgentRun';
 import { AgentRunStep } from './entities/AgentRunStep';
+import { TemplateJob } from './entities/TemplateJob';
+import { UserCredit } from './entities/UserCredit';
+import { CreditTransaction } from './entities/CreditTransaction';
 import { UsersModule } from './modules/users/users.module';
 import { TemplatesModule } from './modules/templates/templates.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { AgentsModule } from './modules/agents/agents.module';
 import { AgentRunsModule } from './modules/agent-runs/agent-runs.module';
+import { CreditsModule } from './modules/credits/credits.module';
 
 @Module({
   imports: [
@@ -37,7 +41,7 @@ import { AgentRunsModule } from './modules/agent-runs/agent-runs.module';
         username: configService.get<string>('PG_USER'),
         password: configService.get<string>('PG_PASSWORD'),
         database: configService.get<string>('PG_DATABASE'),
-        entities: [User, Template, Subscription, Agent, AgentStep, AgentRun, AgentRunStep],
+        entities: [User, Template, Subscription, Agent, AgentStep, AgentRun, AgentRunStep, TemplateJob, UserCredit, CreditTransaction],
         synchronize: false,
         autoLoadEntities: false,
       }),
@@ -51,6 +55,7 @@ import { AgentRunsModule } from './modules/agent-runs/agent-runs.module';
     BillingModule,
     AgentsModule,
     AgentRunsModule,
+    CreditsModule,
   ],
   controllers: [AppController],
   providers: [

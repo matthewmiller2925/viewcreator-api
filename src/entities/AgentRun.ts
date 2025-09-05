@@ -34,6 +34,9 @@ export class AgentRun {
   @Column({ type: 'text', nullable: true })
   errorMessage?: string | null;
 
+  @Column({ type: 'int', default: 0, nullable: true })
+  creditsUsed?: number;
+
   @Column({ type: 'timestamptz', nullable: true })
   startedAt?: Date | null;
 

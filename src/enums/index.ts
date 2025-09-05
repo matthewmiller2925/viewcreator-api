@@ -28,3 +28,19 @@ export enum AgentRunStepStatusEnum {
   FAILED = 'failed',
   SKIPPED = 'skipped'
 }
+
+export enum TemplateJobStatusEnum {
+  QUEUED = 'queued',
+  RUNNING = 'running',
+  SUCCEEDED = 'succeeded',
+  FAILED = 'failed',
+  CANCELED = 'canceled'
+}
+
+export enum CreditTransactionTypeEnum {
+  PURCHASE = 'purchase',
+  USAGE = 'usage',
+  REFUND = 'refund',
+  BONUS = 'bonus',
+  ADJUSTMENT = 'adjustment'
+}

@@ -9,6 +9,7 @@ import { Template } from '../../entities/Template';
 import { AgentRunStatusEnum, AgentRunStepStatusEnum } from '../../enums';
 import { FalAiService } from '../fal-ai/fal-ai.service';
 import { GenerateImageDto, FalImageModel } from '../fal-ai/dto/fal-ai-base.dto';
+import { CreditsService } from '../credits/credits.service';
 
 @Injectable()
 export class AgentsService {
@@ -24,6 +25,7 @@ export class AgentsService {
     @InjectRepository(Template)
     private readonly templateRepository: Repository<Template>,
     private readonly falAiService: FalAiService,
+    private readonly creditsService: CreditsService,
   ) {}
 
   async createAgent(data: Partial<Agent>): Promise<Agent> {
@@ -90,6 +92,21 @@ export class AgentsService {
       order: { stepIndex: 'ASC' } 
     });
 
+    // Calculate credits needed (estimate image steps) - DISABLED until migrations run
+    const imageSteps = steps.filter(step => 
+      this.detectImageGenerationIntent(step.instructions.toLowerCase()) ||
+      agent.instructions.toLowerCase().includes('slideshow') ||
+      agent.instructions.toLowerCase().includes('instagram')
+    ).length;
+    
+    const creditsNeeded = this.creditsService.getAgentRunCost(steps.length, imageSteps);
+    
+    // Check if user has sufficient credits
+    const hasSufficientCredits = await this.creditsService.checkSufficientCredits(userId, creditsNeeded);
+    if (!hasSufficientCredits) {
+      throw new Error(`Insufficient credits. Need ${creditsNeeded} credits to run this agent.`);
+    }
+
     // Create agent run
     const agentRun = this.agentRunRepository.create({
       agentId,
@@ -97,6 +114,7 @@ export class AgentsService {
       status: AgentRunStatusEnum.QUEUED,
       startedAt: null,
       finishedAt: null,
+      parameters: { estimatedCredits: creditsNeeded },
     });
     const savedRun = await this.agentRunRepository.save(agentRun);
 
@@ -118,7 +136,14 @@ export class AgentsService {
   }
 
   private async processAgentRun(runId: string): Promise<void> {
+    let totalCreditsUsed = 0;
+    let run: AgentRun | null = null;
+    
     try {
+      // Get run details
+      run = await this.agentRunRepository.findOne({ where: { id: runId } });
+      if (!run) throw new Error('Run not found');
+
       // Update run status to running
       await this.agentRunRepository.update(
         { id: runId }, 
@@ -147,6 +172,10 @@ export class AgentsService {
 
           if (agentStep) {
             const result = await this.processAgentStep(agentStep, runId);
+            
+            // Calculate credits for this step
+            const stepCredits = result.artifacts?.type === 'image' ? 15 : 5; // 15 for image steps, 5 for text steps
+            totalCreditsUsed += stepCredits;
             
             // Update step with results
             await this.agentRunStepRepository.update(
@@ -183,20 +212,38 @@ export class AgentsService {
         }
       }
 
-      // Update run status to completed
+      // Deduct credits for successful run
+      if (totalCreditsUsed > 0 && run) {
+        await this.creditsService.deductCredits(
+          run.userId,
+          totalCreditsUsed,
+          `Agent run: ${totalCreditsUsed} credits used`,
+          runId,
+          'agent'
+        );
+      }
+
+      // Update run status to completed with credit info
       await this.agentRunRepository.update(
         { id: runId },
-        { status: AgentRunStatusEnum.SUCCEEDED, finishedAt: new Date() }
+        { 
+          status: AgentRunStatusEnum.SUCCEEDED, 
+          finishedAt: new Date(),
+          creditsUsed: totalCreditsUsed,
+          parameters: { ...run?.parameters, actualCreditsUsed: totalCreditsUsed }
+        }
       );
 
     } catch (error) {
-      // Mark run as failed
+      // Mark run as failed (don't charge credits for failed runs)
       await this.agentRunRepository.update(
         { id: runId },
         { 
           status: AgentRunStatusEnum.FAILED, 
           finishedAt: new Date(),
-          errorMessage: error instanceof Error ? error.message : 'Unknown error'
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+          creditsUsed: 0, // No credits charged for failed runs
+          parameters: run ? { ...run.parameters, actualCreditsUsed: totalCreditsUsed } : undefined
         }
       );
     }
@@ -230,6 +277,15 @@ export class AgentsService {
         errorMessage: step.errorMessage,
       }))
     };
+  }
+
+  async getUserAgentRuns(userId: string): Promise<AgentRun[]> {
+    return this.agentRunRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: 100,
+      relations: ['agent']
+    });
   }
 
   private async processAgentStep(agentStep: AgentStep, runId: string): Promise<{ output: string; artifacts?: any }> {
