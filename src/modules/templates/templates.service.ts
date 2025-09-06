@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Template } from '../../entities/Template';
@@ -74,7 +74,7 @@ export class TemplatesService {
     // Check if user has sufficient credits
     const hasSufficientCredits = await this.creditsService.checkSufficientCredits(userId, creditsNeeded);
     if (!hasSufficientCredits) {
-      throw new Error(`Insufficient credits. Need ${creditsNeeded} credits to generate ${count} image(s).`);
+      throw new HttpException(`Insufficient credits. Need ${creditsNeeded} credits to generate ${count} image(s).`, HttpStatus.BAD_REQUEST);
     }
 
     // Create template job

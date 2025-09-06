@@ -36,9 +36,29 @@ export class CreditTransaction {
   @Column({ type: 'jsonb', nullable: true })
   metadata?: any;
 
+  // Stripe identifiers for purchases/refunds
+  @Column({ type: 'text', nullable: true })
+  stripeSessionId?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  stripePaymentIntentId?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  stripeChargeId?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  stripeInvoiceId?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  stripeProductId?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  stripePriceId?: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt!: Date;
 }
+

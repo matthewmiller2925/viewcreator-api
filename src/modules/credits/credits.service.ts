@@ -139,6 +139,39 @@ export class CreditsService {
     });
   }
 
+  async revokeCredits(
+    userId: string,
+    amount: number,
+    description: string,
+    type: CreditTransactionTypeEnum = CreditTransactionTypeEnum.REFUND
+  ): Promise<UserCredit> {
+    return this.dataSource.transaction(async (manager) => {
+      const userCredit = await manager.findOne(UserCredit, {
+        where: { userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!userCredit) {
+        throw new Error('User credits not found');
+      }
+
+      const revoke = Math.max(0, Math.min(amount, userCredit.balance));
+      userCredit.balance -= revoke;
+      userCredit.totalEarned = Math.max(0, userCredit.totalEarned - revoke);
+      const updatedCredit = await manager.save(UserCredit, userCredit);
+
+      await manager.save(CreditTransaction, {
+        userId,
+        type,
+        amount: -revoke,
+        balanceAfter: updatedCredit.balance,
+        description,
+      });
+
+      return updatedCredit;
+    });
+  }
+
   async getTransactionHistory(userId: string, limit: number = 50): Promise<CreditTransaction[]> {
     return this.transactionsRepository.find({
       where: { userId },
@@ -177,3 +210,4 @@ export class CreditsService {
     return this.calculateAgentRunCost(stepCount, imageSteps);
   }
 }
+

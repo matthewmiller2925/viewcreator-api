@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Agent } from '../../entities/Agent';
@@ -104,7 +104,7 @@ export class AgentsService {
     // Check if user has sufficient credits
     const hasSufficientCredits = await this.creditsService.checkSufficientCredits(userId, creditsNeeded);
     if (!hasSufficientCredits) {
-      throw new Error(`Insufficient credits. Need ${creditsNeeded} credits to run this agent.`);
+      throw new HttpException(`Insufficient credits. Need ${creditsNeeded} credits to run this agent.`, HttpStatus.BAD_REQUEST);
     }
 
     // Create agent run

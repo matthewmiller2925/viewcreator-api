@@ -10,9 +10,21 @@ export class BillingController {
   @UseGuards(JwtAuthGuard)
   @Post('checkout')
   async createCheckoutSession(
-    @Body() body: { userId: string; priceId: string },
+    @Body() body: { userId: string; priceId?: string; productId?: string },
   ): Promise<{ sessionUrl: string }> {
+    if (body.productId) {
+      return this.billingService.createSubscriptionFromProduct(body.userId, body.productId);
+    }
+    if (!body.priceId) throw new Error('priceId or productId required');
     return this.billingService.createSubscriptionFromCheckout(body.userId, body.priceId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('credits/checkout')
+  async createCreditsCheckout(
+    @Body() body: { userId: string; productId: string },
+  ): Promise<{ sessionUrl: string }> {
+    return this.billingService.createOneTimeCreditsCheckout(body.userId, body.productId);
   }
 }
 

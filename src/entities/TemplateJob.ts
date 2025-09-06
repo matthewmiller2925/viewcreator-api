@@ -51,3 +51,4 @@ export class TemplateJob {
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt!: Date;
 }
+

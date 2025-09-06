@@ -29,3 +29,4 @@ export class UserCredit {
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt!: Date;
 }
+
